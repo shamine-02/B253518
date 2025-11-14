@@ -1,34 +1,124 @@
 ---
-title: "Assessment"
+title: "Exploring the distribution salbutamol inhaler prescriptions in households with no central heating in winter 2021/2022 and 2010/2011"
 output: html_document
 date: "2025-10-31"
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 ```
 
-## R Markdown
+## Introduction
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This question aims to determine whether there is a correlation between the number of prescriptions for salbutamol inhalers (including branded salbutamol inhalers) and the proportion of households without central heating in NHS Scotland healthboards.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+Salbutamol inhalers are used to relieve the symptoms of respiratory conditons, such as asthma and chronic obstructive pulmonary disease. Patients may use their salbutamol inhaler when they experience symptoms, such as breathlessness, tightness in their chest, coughing and wheezing. These symptoms are usually exacerbated by the cold weather. Therefore, this questions aims to determine if there is a difference between prescriptions for salbutamol inhalers in areas with higher proportions of households with no central heating.We will look at the months which are the coldest in Scotland, the winter months, which for 2021/2022 were December, January and February.
 
-```{r cars}
-summary(cars)
+I may also compare it to data for winter 2010/2011.
+
+```{r message=FALSE}
+library(tidyverse)
+library(janitor)
+library(here)
+library(readxl)
+```
+
+```{r}
+#load data for central heating
+heating_data2022 <- read_excel(here("data", "table_2025-11-12_19-17-58.xlsx"))
+
+# tidy dataset and change values in hb_area2019 column to include NHS + healthboard name
+heating_data2022 <- heating_data2022 %>%
+  select(c("...2":"...4")) %>% 
+  rename(c("hb_area2019" = ...2,
+           "occupied_households" = ...3,
+           "no_central_heating" = ...4)) %>% 
+  filter(!row_number() %in% c(1:9, 24:28)) %>% 
+  mutate(hb_area2019 = paste("NHS", hb_area2019))
+
+#change data for no_central_heating and occupied_households into integers (from characters)
+heating_data2022 <- heating_data2022 %>%
+  mutate(no_central_heating = as.numeric(no_central_heating),
+         occupied_households = as.numeric(occupied_households))
+
+# add a column that shows the proportion of households without central heating
+
+heating_data2022 <- heating_data2022 %>% 
+  mutate(percent_no_heating = (no_central_heating/occupied_households)*100)
+```
+
+To find the dataset for census data regarding central heating, go to: <https://www.scotlandscensus.gov.uk/webapi/jsf/tableView/tableView.xhtml>
+
+```{r}
+#load dataset
+data_dec2021 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/ad9e7b46-47fb-4d42-baad-f8e98e8f5936/download/pitc202112.csv") %>% 
+  drop_na() %>% 
+  clean_names()
+
+#join with hb names
+HB_names <- read_csv("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>% 
+  clean_names()
+
+data_dec2021 <- data_dec2021 %>% 
+  full_join(HB_names, by = c("hbt" = "hb")) %>% 
+  select(hb_name, hbt:paid_date_month)
+
+#different brand names for salbutamol
+asthma_relievers <- c("SALBUTAMOL", "VENTOLIN", "AIROMIR", "ASMALAL", "EASYHALER", "PULVINAL", "SALAMOL", "EASI-BREATHE", "SALBULIN")
+
+#filtering for salbutamol and removing any medications of different chemical compounds not related to salbutamol
+asthma_meds_12_21 <- data_dec2021 %>% 
+  filter(str_detect(bnf_item_description, paste(asthma_relievers, collapse = "|"))) %>% 
+  filter(!(str_detect(bnf_item_description, "FORMOTEROL|BECLOMET|BUDESONIDE |FOBUMIX")))
+
+#prepare the dataset
+asthma_meds_12_21 <- asthma_meds_12_21 %>% 
+  select(c(hb_name, hbt, bnf_item_description, paid_quantity)) %>% 
+  group_by(hb_name) %>% 
+  summarise(prescribed_salbutamol = sum(paid_quantity)) %>% 
+  filter(!row_number() %in% 15) #code for the scottish ambulance service
+```
+
+```{r}
+#join asthma_data_12_21 and heating data (2022)
+
+joined_dec2021 <- asthma_meds_12_21 %>% 
+  full_join(heating_data2022, by = (c("hb_name" = "hb_area2019")))
+
+#plotting data for % of households with heating in a healthboard and prescriptions of salbutamol
+
+joined_dec2021 %>% 
+  ggplot(aes(x = percent_no_heating, y = prescribed_salbutamol, colour = hb_name))+
+  geom_point() +
+  labs( title = "Plot showing the number of prescription against % of houeholds without heating",
+        subtitle = "Decemebr 2021",
+        x = "no central heating (%)",
+        y = "number of salbutamol prescribed")
+
+```
+
+```{r echo=FALSE}
+data_jan2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/53a53d61-3b3b-4a12-888b-a788ce13db9c/download/pitc202201.csv") %>% 
+  clean_names()
+
+```
+
+```{r echo=FALSE}
+data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/bd7aa5c9-d708-4d0b-9b28-a9d822c84e34/download/pitc202202.csv") %>% 
+  clean_names()
 ```
 
 ## Including Plots
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-
-library(tidyverse)
-
-ggplot(pressure, aes(x = temperature, y = pressure)) + 
-  geom_point()
+```{r echo=FALSE}
+heating_data2011 <- read_excel(here("data", "table_2025-11-12_20-16-59.xlsx"))
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+Reference List
+
+<https://www.nhs.uk/medicines/salbutamol-inhaler/about-salbutamol-inhalers/>
+
+<https://www.nhs.uk/conditions/chronic-obstructive-pulmonary-disease-copd/>
+
+<https://www.asthmaandlung.org.uk/living-with/cold-weather>
