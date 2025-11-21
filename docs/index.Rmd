@@ -1,5 +1,5 @@
 ---
-title: "Exploring the distribution salbutamol inhaler prescriptions in households with no central heating in winter 2021/2022 and 2010/2011"
+title: "Exploring the distribution salbutamol inhaler prescriptions in households with no central heating in winter 2021/2022 and 2015/2016"
 output: html_document
 date: "2025-10-31"
 ---
@@ -27,56 +27,172 @@ library(readxl)
 #load data for central heating
 heating_data2022 <- read_excel(here("data", "table_2025-11-12_19-17-58.xlsx"))
 
-# tidy dataset and change values in hb_area2019 column to include NHS + healthboard name
-heating_data2022 <- heating_data2022 %>%
-  select(c("...2":"...4")) %>% 
-  rename(c("hb_area2019" = ...2,
+heating_data2011 <- read_excel(here("data", "table_2025-11-12_20-16-59.xlsx"))
+
+# funcion to tidy dataset and change values in hb_area column to include NHS + healthboard name
+tidy_heating <- function(df){
+  df %>% 
+    select(c("...2":"...4")) %>% 
+  rename(c("hb_area" = ...2,
            "occupied_households" = ...3,
            "no_central_heating" = ...4)) %>% 
-  filter(!row_number() %in% c(1:9, 24:28)) %>% 
-  mutate(hb_area2019 = paste("NHS", hb_area2019))
+  mutate(hb_area = paste("NHS", hb_area))}
 
-#change data for no_central_heating and occupied_households into integers (from characters)
-heating_data2022 <- heating_data2022 %>%
-  mutate(no_central_heating = as.numeric(no_central_heating),
-         occupied_households = as.numeric(occupied_households))
+#function to change data for no_central_heating and occupied_households into integers (from characters) and add a column that shows the proportion of households without central heating
+  
+percent_heating <- function(df){
+  df %>% 
+    mutate(no_central_heating = as.numeric(no_central_heating),
+         occupied_households = as.numeric(occupied_households)) %>% 
+    mutate(percent_no_heating = (no_central_heating/occupied_households)*100)#add column percent_no_heating 
+  }
+```
 
-# add a column that shows the proportion of households without central heating
-
+```{r}
 heating_data2022 <- heating_data2022 %>% 
-  mutate(percent_no_heating = (no_central_heating/occupied_households)*100)
+  tidy_heating() %>% 
+  filter(!row_number() %in% c(1:9, 24:28)) %>% #remove, since rows contain no data
+  percent_heating
+
+heating_data2011 <- heating_data2011 %>% 
+  tidy_heating() %>% 
+  filter(!row_number() %in% c(1:10, 25:26)) %>% #remove, since rows contain no data
+  percent_heating
 ```
 
 To find the dataset for census data regarding central heating, go to: <https://www.scotlandscensus.gov.uk/webapi/jsf/tableView/tableView.xhtml>
 
 ```{r}
-#load dataset
-data_dec2021 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/ad9e7b46-47fb-4d42-baad-f8e98e8f5936/download/pitc202112.csv") %>% 
-  drop_na() %>% 
+#load datasets for winter 2021/2022
+
+data_dec2021 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/ad9e7b46-47fb-4d42-baad-f8e98e8f5936/download/pitc202112.csv") %>%
+  drop_na() %>%
   clean_names()
 
+data_jan2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/53a53d61-3b3b-4a12-888b-a788ce13db9c/download/pitc202201.csv") %>%
+  drop_na() %>%
+  clean_names()
+
+data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/bd7aa5c9-d708-4d0b-9b28-a9d822c84e34/download/pitc202202.csv") %>%
+  drop_na() %>%
+  clean_names()
+
+# links <- read_csv(here("file_links.csv")) %>% 
+#   select(link) %>% 
+#   pull
+```
+
+```{r}
+rename_col <- function(df){
+  df %>% 
+    rename("hbt" = hbt2014)
+}
+#load datasets for winter 2015/2016
+data_dec2015 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/b4b9b59a-4559-4a4c-b924-20bb165b7641/download/pitc201512.csv") %>% 
+  drop_na() %>% 
+  clean_names() %>% 
+  rename_col()
+
+data_jan2016 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/7c487db9-f450-4319-8b18-4b825380692b/download/pitc201601.csv") %>% 
+  drop_na() %>% 
+  clean_names() %>% 
+  rename_col()
+
+data_feb2016 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/0727befa-5530-4c1d-aff0-ccb7554eff7a/download/pitc201602.csv") %>% 
+  drop_na() %>% 
+  clean_names() %>% 
+  rename_col()
+
+```
+
+```{r}
+#function to filter for salbutamol inhalers and summarise inhaler prescriptions
+
+salbut_relievers <- c("SALBUTAMOL", "VENTOLIN", "AIROMIR", "ASMALAL", "EASYHALER", "PULVINAL", "SALAMOL", "EASI-BREATHE", "SALBULIN") #names of salbutamol and brand equivalents
+
+salbut_presc <- function(df){
+  df %>% 
+  filter(str_detect(bnf_item_description,
+                    paste(salbut_relievers, collapse = "|"))) %>% 
+  filter(!(str_detect(bnf_item_description,
+                      "FORMOTEROL|BECLOMET|BUDESONIDE|FOBUMIX"))) %>% 
+  select(c(hbt, bnf_item_description, paid_quantity)) %>% #prepare dataset
+  group_by(hbt) %>% 
+  summarise(prescribed_salbutamol = sum(paid_quantity)) %>% #add new column for sum
+  filter(!row_number() %in% 15) #if present, removing row with code for the Scottish Ambulance Service  
+}
+
+#filtering datasets for each winter month in 2021/2022 and 2015/2016
+data_dec2021 <- salbut_presc(data_dec2021) %>% 
+  rename("salbutamol_dec21" = prescribed_salbutamol)
+
+data_jan2022 <- salbut_presc(data_jan2022) %>% 
+  rename("salbutamol_jan22" = prescribed_salbutamol)
+
+data_feb2022 <- salbut_presc(data_feb2022) %>% 
+  rename("salbutamol_feb22" = prescribed_salbutamol)
+
+data_dec2015 <- salbut_presc(data_dec2015) %>% 
+  rename("salbutamol_dec15" = prescribed_salbutamol)
+
+data_jan2016 <- salbut_presc(data_jan2016) %>% 
+  rename("salbutamol_jan16" = prescribed_salbutamol)
+
+data_feb2016 <- salbut_presc(data_feb2016) %>% 
+  rename("salbutamol_feb16" = prescribed_salbutamol)
+```
+
+```{r}
+#join datasets for 2015/2016 and 2021/2022 together
+
+join_prescription <- function(df1, df2){
+  df1 %>% 
+    full_join(df2, join_by("hbt" == "hbt"))
+}
+#join winter 2021/2022 data together
+salbut_2122 <- join_prescription(data_dec2021, data_jan2022)
+
+salbut_2122 <- join_prescription(salbut_2122, data_feb2022)
+
+#join winter 2015/2016 data together
+
+salbut_1516 <- join_prescription(data_dec2015, data_jan2016)
+
+salbut_1516 <- join_prescription(salbut_1516, data_feb2016)
+```
+
+```{r}
 #join with hb names
 HB_names <- read_csv("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>% 
   clean_names()
 
-data_dec2021 <- data_dec2021 %>% 
-  full_join(HB_names, by = c("hbt" = "hb")) %>% 
-  select(hb_name, hbt:paid_date_month)
+join_hbnames <- function(df1, df2) {
+  df1 %>% 
+  full_join(df2, join_by("hbt" == "hb")) %>% 
+  select(c(hbt, hb_name, starts_with("salbutamol")))
+}
 
-#different brand names for salbutamol
-asthma_relievers <- c("SALBUTAMOL", "VENTOLIN", "AIROMIR", "ASMALAL", "EASYHALER", "PULVINAL", "SALAMOL", "EASI-BREATHE", "SALBULIN")
+salbut_2122 <- join_hbnames(salbut_2122, HB_names)
 
-#filtering for salbutamol and removing any medications of different chemical compounds not related to salbutamol
-asthma_meds_12_21 <- data_dec2021 %>% 
-  filter(str_detect(bnf_item_description, paste(asthma_relievers, collapse = "|"))) %>% 
-  filter(!(str_detect(bnf_item_description, "FORMOTEROL|BECLOMET|BUDESONIDE |FOBUMIX")))
+salbut_1516 <- join_hbnames(salbut_1516, HB_names)
+```
 
-#prepare the dataset
-asthma_meds_12_21 <- asthma_meds_12_21 %>% 
-  select(c(hb_name, hbt, bnf_item_description, paid_quantity)) %>% 
-  group_by(hb_name) %>% 
-  summarise(prescribed_salbutamol = sum(paid_quantity)) %>% 
-  filter(!row_number() %in% 15) #code for the scottish ambulance service
+```{r}
+#join population data
+population_data <- read_csv("https://www.opendata.nhs.scot/dataset/7f010430-6ce1-4813-b25c-f7f335bdc4dc/resource/27a72cc8-d6d8-430c-8b4f-3109a9ceadb1/download/hb2019_pop_est_03102025.csv")
+
+population_1516 <- population_data %>% 
+  filter(c(Year == "2016"& Sex == "All")) %>% 
+  select(c(HB, AllAges))
+
+population_2122 <- population_data %>% 
+  filter(Year == "2022"& Sex == "All") %>% 
+  select(c(HB, AllAges))
+
+#join prescription data and population data
+joint_data <- salbut_1516 %>% 
+  full_join(population_1516, join_by("hbt" == "HB")) %>% 
+  
 ```
 
 ```{r}
@@ -97,23 +213,11 @@ joined_dec2021 %>%
 
 ```
 
-```{r echo=FALSE}
-data_jan2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/53a53d61-3b3b-4a12-888b-a788ce13db9c/download/pitc202201.csv") %>% 
-  clean_names()
-
-```
-
-```{r echo=FALSE}
-data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/bd7aa5c9-d708-4d0b-9b28-a9d822c84e34/download/pitc202202.csv") %>% 
-  clean_names()
-```
-
 ## Including Plots
 
 ```{r echo=FALSE}
 heating_data2011 <- read_excel(here("data", "table_2025-11-12_20-16-59.xlsx"))
 ```
-
 
 Reference List
 
