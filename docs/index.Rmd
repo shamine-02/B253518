@@ -17,10 +17,7 @@ Salbutamol inhalers are used to relieve the symptoms of respiratory conditons, s
 I may also compare it to data for winter 2010/2011.
 
 ```{r message=FALSE}
-library(tidyverse)
-library(janitor)
-library(here)
-library(readxl)
+pacman::p_load(tidyverse, janitor , here, readxl, maggitr)
 ```
 
 ```{r}
@@ -39,7 +36,6 @@ tidy_heating <- function(df){
   mutate(hb_area = paste("NHS", hb_area))}
 
 #function to change data for no_central_heating and occupied_households into integers (from characters) and add a column that shows the proportion of households without central heating
-  
 percent_heating <- function(df){
   df %>% 
     mutate(no_central_heating = as.numeric(no_central_heating),
@@ -49,13 +45,11 @@ percent_heating <- function(df){
 ```
 
 ```{r}
-heating_data2022 <- heating_data2022 %>% 
-  tidy_heating() %>% 
+heating_data2022 %<>% tidy_heating() %>% 
   filter(!row_number() %in% c(1:9, 24:28)) %>% #remove, since rows contain no data
   percent_heating
 
-heating_data2011 <- heating_data2011 %>% 
-  tidy_heating() %>% 
+heating_data2011 %<>% tidy_heating() %>% 
   filter(!row_number() %in% c(1:10, 25:26)) %>% #remove, since rows contain no data
   percent_heating
 ```
@@ -64,18 +58,20 @@ To find the dataset for census data regarding central heating, go to: <https://w
 
 ```{r}
 #load datasets for winter 2021/2022
+clean2122 <- function(df){
+  df %>% 
+    drop_na() %>%
+    clean_names()
+  }
 
 data_dec2021 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/ad9e7b46-47fb-4d42-baad-f8e98e8f5936/download/pitc202112.csv") %>%
-  drop_na() %>%
-  clean_names()
+  clean2122()
 
 data_jan2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/53a53d61-3b3b-4a12-888b-a788ce13db9c/download/pitc202201.csv") %>%
-  drop_na() %>%
-  clean_names()
+  clean2122
 
 data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/bd7aa5c9-d708-4d0b-9b28-a9d822c84e34/download/pitc202202.csv") %>%
-  drop_na() %>%
-  clean_names()
+  clean2122
 
 # links <- read_csv(here("file_links.csv")) %>% 
 #   select(link) %>% 
@@ -83,31 +79,26 @@ data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b
 ```
 
 ```{r}
-rename_col <- function(df){
+clean1516 <- function(df){
   df %>% 
-    rename("hbt" = hbt2014)
+    rename("hbt" = hbt2014) %>% 
+    drop_na() %>% 
+    clean_names()
 }
 #load datasets for winter 2015/2016
 data_dec2015 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/b4b9b59a-4559-4a4c-b924-20bb165b7641/download/pitc201512.csv") %>% 
-  drop_na() %>% 
-  clean_names() %>% 
-  rename_col()
+  clean2015()
 
-data_jan2016 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/7c487db9-f450-4319-8b18-4b825380692b/download/pitc201601.csv") %>% 
-  drop_na() %>% 
-  clean_names() %>% 
-  rename_col()
+data_jan2016 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/7c487db9-f450-4319-8b18-4b825380692b/download/pitc201601.csv") %>%
+  clean2015()
 
 data_feb2016 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/0727befa-5530-4c1d-aff0-ccb7554eff7a/download/pitc201602.csv") %>% 
-  drop_na() %>% 
-  clean_names() %>% 
-  rename_col()
+  clean2015()
 
 ```
 
 ```{r}
 #function to filter for salbutamol inhalers and summarise inhaler prescriptions
-
 salbut_relievers <- c("SALBUTAMOL", "VENTOLIN", "AIROMIR", "ASMALAL", "EASYHALER", "PULVINAL", "SALAMOL", "EASI-BREATHE", "SALBULIN") #names of salbutamol and brand equivalents
 
 salbut_presc <- function(df){
