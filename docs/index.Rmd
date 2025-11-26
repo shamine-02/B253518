@@ -1,5 +1,5 @@
 ---
-title: "Exploring the distribution salbutamol inhaler prescriptions in households with no central heating in winter 2021/2022 and 2015/2016"
+title: "Is there a correlation between presriptions of Salbutamol and proportions of households without central heating in healthboards in Scotland?"
 output: html_document
 date: "2025-10-31"
 ---
@@ -14,51 +14,36 @@ This question aims to determine whether there is a correlation between the numbe
 
 Salbutamol inhalers are used to relieve the symptoms of respiratory conditons, such as asthma and chronic obstructive pulmonary disease. Patients may use their salbutamol inhaler when they experience symptoms, such as breathlessness, tightness in their chest, coughing and wheezing. These symptoms are usually exacerbated by the cold weather. Therefore, this questions aims to determine if there is a difference between prescriptions for salbutamol inhalers in areas with higher proportions of households with no central heating.We will look at the months which are the coldest in Scotland, the winter months, which for 2021/2022 were December, January and February.
 
-I may also compare it to data for winter 2010/2011.
 
 ```{r message=FALSE}
-pacman::p_load(tidyverse, janitor , here, readxl, maggitr)
+pacman::p_load(tidyverse, janitor, here, readxl, magrittr)
 ```
 
 ```{r}
 #load data for central heating
 heating_data2022 <- read_excel(here("data", "table_2025-11-12_19-17-58.xlsx"))
 
-heating_data2011 <- read_excel(here("data", "table_2025-11-12_20-16-59.xlsx"))
-
-# funcion to tidy dataset and change values in hb_area column to include NHS + healthboard name
-tidy_heating <- function(df){
-  df %>% 
-    select(c("...2":"...4")) %>% 
-  rename(c("hb_area" = ...2,
+#tidy dataset and change values in hb_area column to include NHS + healthboard name
+tidy_heating2022 <- heating_data2022 %>% 
+  rename(c("hb_area2019" = ...2,
            "occupied_households" = ...3,
            "no_central_heating" = ...4)) %>% 
-  mutate(hb_area = paste("NHS", hb_area))}
+  select(c(hb_area2019:no_central_heating)) %>%
+  mutate(hb_area2019 = paste("NHS", hb_area2019)) %>% #add NHs to name of healthboard
+  filter(!row_number() %in% c(1:9, 24:28)) #remove, since rows contain no data
 
-#function to change data for no_central_heating and occupied_households into integers (from characters) and add a column that shows the proportion of households without central heating
-percent_heating <- function(df){
-  df %>% 
-    mutate(no_central_heating = as.numeric(no_central_heating),
+#change data for no_central_heating and occupied_households into integers (from characters) and add a column that shows the proportion of households without central heating
+tidy_heating2022 %<>% mutate(no_central_heating = as.numeric(no_central_heating),
          occupied_households = as.numeric(occupied_households)) %>% 
     mutate(percent_no_heating = (no_central_heating/occupied_households)*100)#add column percent_no_heating 
-  }
-```
-
-```{r}
-heating_data2022 %<>% tidy_heating() %>% 
-  filter(!row_number() %in% c(1:9, 24:28)) %>% #remove, since rows contain no data
-  percent_heating
-
-heating_data2011 %<>% tidy_heating() %>% 
-  filter(!row_number() %in% c(1:10, 25:26)) %>% #remove, since rows contain no data
-  percent_heating
+  
 ```
 
 To find the dataset for census data regarding central heating, go to: <https://www.scotlandscensus.gov.uk/webapi/jsf/tableView/tableView.xhtml>
 
-```{r}
-#load datasets for winter 2021/2022
-clean2122 <- function(df){
+```{r loading datasets}
+#function to clean datasets
+clean_prescriptions <- function(df){
   df %>% 
     drop_na() %>%
     clean_names()
@@ -78,24 +63,6 @@ data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b
 #   pull
 ```
 
-```{r}
-clean1516 <- function(df){
-  df %>% 
-    rename("hbt" = hbt2014) %>% 
-    drop_na() %>% 
-    clean_names()
-}
-#load datasets for winter 2015/2016
-data_dec2015 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/b4b9b59a-4559-4a4c-b924-20bb165b7641/download/pitc201512.csv") %>% 
-  clean2015()
-
-data_jan2016 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/7c487db9-f450-4319-8b18-4b825380692b/download/pitc201601.csv") %>%
-  clean2015()
-
-data_feb2016 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/0727befa-5530-4c1d-aff0-ccb7554eff7a/download/pitc201602.csv") %>% 
-  clean2015()
-
-```
 
 ```{r}
 #function to filter for salbutamol inhalers and summarise inhaler prescriptions
@@ -110,46 +77,33 @@ salbut_presc <- function(df){
   select(c(hbt, bnf_item_description, paid_quantity)) %>% #prepare dataset
   group_by(hbt) %>% 
   summarise(prescribed_salbutamol = sum(paid_quantity)) %>% #add new column for sum
-  filter(!row_number() %in% 15) #if present, removing row with code for the Scottish Ambulance Service  
+  subset(hbt != "SB0806") #removing row with code SB0806
 }
 
 #filtering datasets for each winter month in 2021/2022 and 2015/2016
-data_dec2021 <- salbut_presc(data_dec2021) %>% 
+
+salbut_dec2021 <- salbut_presc(data_dec2021) %>% 
   rename("salbutamol_dec21" = prescribed_salbutamol)
 
-data_jan2022 <- salbut_presc(data_jan2022) %>% 
+salbut_jan2022 <- salbut_presc(data_jan2022) %>% 
   rename("salbutamol_jan22" = prescribed_salbutamol)
 
-data_feb2022 <- salbut_presc(data_feb2022) %>% 
+salbut_feb2022 <- salbut_presc(data_feb2022) %>% 
   rename("salbutamol_feb22" = prescribed_salbutamol)
-
-data_dec2015 <- salbut_presc(data_dec2015) %>% 
-  rename("salbutamol_dec15" = prescribed_salbutamol)
-
-data_jan2016 <- salbut_presc(data_jan2016) %>% 
-  rename("salbutamol_jan16" = prescribed_salbutamol)
-
-data_feb2016 <- salbut_presc(data_feb2016) %>% 
-  rename("salbutamol_feb16" = prescribed_salbutamol)
 ```
+
+code for Scottish Ambulance service: https://www.opendata.nhs.scot/dataset/non-standard-geography-codes-and-labels/resource/0450a5a2-f600-4569-a9ae-5d6317141899 
 
 ```{r}
 #join datasets for 2015/2016 and 2021/2022 together
-
 join_prescription <- function(df1, df2){
   df1 %>% 
     full_join(df2, join_by("hbt" == "hbt"))
 }
 #join winter 2021/2022 data together
-salbut_2122 <- join_prescription(data_dec2021, data_jan2022)
+joined_salbut_2122 <- join_prescription(salbut_dec2021, salbut_jan2022)
 
-salbut_2122 <- join_prescription(salbut_2122, data_feb2022)
-
-#join winter 2015/2016 data together
-
-salbut_1516 <- join_prescription(data_dec2015, data_jan2016)
-
-salbut_1516 <- join_prescription(salbut_1516, data_feb2016)
+joined_salbut_2122 <- join_prescription(joined_salbut_2122, salbut_feb2022)
 ```
 
 ```{r}
@@ -157,24 +111,17 @@ salbut_1516 <- join_prescription(salbut_1516, data_feb2016)
 HB_names <- read_csv("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>% 
   clean_names()
 
-join_hbnames <- function(df1, df2) {
-  df1 %>% 
-  full_join(df2, join_by("hbt" == "hb")) %>% 
-  select(c(hbt, hb_name, starts_with("salbutamol")))
-}
-
-salbut_2122 <- join_hbnames(salbut_2122, HB_names)
-
-salbut_1516 <- join_hbnames(salbut_1516, HB_names)
+hb_salbut_2122 <- joined_salbut_2122 %>% 
+  full_join(HB_names, join_by("hbt" == "hb")) %>% 
+  select(c(hbt, hb_name, starts_with("salbutamol"))) %>% 
+  filter(!is.na(salbutamol_dec21)) #rows contain old area codes (now archived)
 ```
+Area codes from row 15 to 18 are the old area codes from the 2014 healthboard boundaries, but which were changed in 2019.
+***find link***
 
 ```{r}
 #join population data
 population_data <- read_csv("https://www.opendata.nhs.scot/dataset/7f010430-6ce1-4813-b25c-f7f335bdc4dc/resource/27a72cc8-d6d8-430c-8b4f-3109a9ceadb1/download/hb2019_pop_est_03102025.csv")
-
-population_1516 <- population_data %>% 
-  filter(c(Year == "2016"& Sex == "All")) %>% 
-  select(c(HB, AllAges))
 
 population_2122 <- population_data %>% 
   filter(Year == "2022"& Sex == "All") %>% 
