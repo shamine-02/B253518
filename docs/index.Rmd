@@ -50,13 +50,13 @@ clean_prescriptions <- function(df){
   }
 
 data_dec2021 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/ad9e7b46-47fb-4d42-baad-f8e98e8f5936/download/pitc202112.csv") %>%
-  clean2122()
+  clean_prescriptions()
 
 data_jan2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/53a53d61-3b3b-4a12-888b-a788ce13db9c/download/pitc202201.csv") %>%
-  clean2122
+  clean_prescriptions()
 
 data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b0d-a797-b288db64d088/resource/bd7aa5c9-d708-4d0b-9b28-a9d822c84e34/download/pitc202202.csv") %>%
-  clean2122
+  clean_prescriptions()
 
 # links <- read_csv(here("file_links.csv")) %>% 
 #   select(link) %>% 
@@ -92,10 +92,10 @@ salbut_feb2022 <- salbut_presc(data_feb2022) %>%
   rename("salbutamol_feb22" = prescribed_salbutamol)
 ```
 
-code for Scottish Ambulance service: https://www.opendata.nhs.scot/dataset/non-standard-geography-codes-and-labels/resource/0450a5a2-f600-4569-a9ae-5d6317141899 
+remove code for Scottish Ambulance Service (SB0806): https://www.opendata.nhs.scot/dataset/non-standard-geography-codes-and-labels/resource/0450a5a2-f600-4569-a9ae-5d6317141899 
 
 ```{r}
-#join datasets for 2015/2016 and 2021/2022 together
+#join datasets for 2021/2022 together
 join_prescription <- function(df1, df2){
   df1 %>% 
     full_join(df2, join_by("hbt" == "hbt"))
@@ -116,6 +116,7 @@ hb_salbut_2122 <- joined_salbut_2122 %>%
   select(c(hbt, hb_name, starts_with("salbutamol"))) %>% 
   filter(!is.na(salbutamol_dec21)) #rows contain old area codes (now archived)
 ```
+
 Area codes from row 15 to 18 are the old area codes from the 2014 healthboard boundaries, but which were changed in 2019.
 ***find link***
 
@@ -124,14 +125,17 @@ Area codes from row 15 to 18 are the old area codes from the 2014 healthboard bo
 population_data <- read_csv("https://www.opendata.nhs.scot/dataset/7f010430-6ce1-4813-b25c-f7f335bdc4dc/resource/27a72cc8-d6d8-430c-8b4f-3109a9ceadb1/download/hb2019_pop_est_03102025.csv")
 
 population_2122 <- population_data %>% 
-  filter(Year == "2022"& Sex == "All") %>% 
-  select(c(HB, AllAges))
+  filter(Year == "2022" & Sex == "All") %>% 
+  select(c(HB, AllAges)) %>% 
+  filter(HB != "S92000003") #remove country code for Scotland
 
 #join prescription data and population data
-joint_data <- salbut_1516 %>% 
-  full_join(population_1516, join_by("hbt" == "HB")) %>% 
+salbut_population_2122 <- hb_salbut_2122 %>% 
+  full_join(population_2122, join_by("hbt" == "HB"))
   
 ```
+S92000003 is the country code for Scotland, so this row tells us the population of Scotland in this year. So, we can remove it.
+
 
 ```{r}
 #join asthma_data_12_21 and heating data (2022)
