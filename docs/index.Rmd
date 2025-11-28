@@ -129,17 +129,30 @@ population_2122 <- population_data %>%
   select(c(HB, AllAges)) %>% 
   filter(HB != "S92000003") #remove country code for Scotland
 
-#join prescription data and population data
+#functions for salbutamol per 100k 
+#salbut_per100k <- function(df,)
+
+#join prescription data and population data and add columns for prescriptions per 100k
 salbut_population_2122 <- hb_salbut_2122 %>% 
-  full_join(population_2122, join_by("hbt" == "HB"))
+  full_join(population_2122, join_by("hbt" == "HB")) %>% 
+  rename("population" = AllAges) 
   
+testing <- salbut_population_2122 %>%   
+  mutate(across(starts_with("salbutamol")), 
+         (pick(starts_with("salbutamol"))*100000)/population, .names = "per100k_{.col}")
+
+testing <- salbut_population_2122 %>%   
+  mutate(across(pick(starts_with("salbutamol")),*100000/population, .names = "per100k_{.col}")
+
+.names = "per100k_{.col}"), 
+
+  mutate(.names = "per100k_{.col}")
 ```
 S92000003 is the country code for Scotland, so this row tells us the population of Scotland in this year. So, we can remove it.
 
 
 ```{r}
 #join asthma_data_12_21 and heating data (2022)
-
 joined_dec2021 <- asthma_meds_12_21 %>% 
   full_join(heating_data2022, by = (c("hb_name" = "hb_area2019")))
 
