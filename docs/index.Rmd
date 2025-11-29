@@ -12,7 +12,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 This question aims to determine whether there is a correlation between the number of prescriptions for salbutamol inhalers (including branded salbutamol inhalers) and the proportion of households without central heating in NHS Scotland healthboards.
 
-Salbutamol inhalers are used to relieve the symptoms of respiratory conditons, such as asthma and chronic obstructive pulmonary disease. Patients may use their salbutamol inhaler when they experience symptoms, such as breathlessness, tightness in their chest, coughing and wheezing. These symptoms are usually exacerbated by the cold weather. Therefore, this questions aims to determine if there is a difference between prescriptions for salbutamol inhalers in areas with higher proportions of households with no central heating.We will look at the months which are the coldest in Scotland, the winter months, which for 2021/2022 were December, January and February.
+Salbutamol inhalers are used to relieve the symptoms of respiratory conditons, such as asthma and chronic obstructive pulmonary disease. Patients may use their salbutamol inhaler when they experience symptoms, such as breathlessness, tightness in their chest, coughing and wheezing. These symptoms are usually exacerbated by the cold weather. Therefore, this questions aims to determine if there is a difference between prescriptions for salbutamol inhalers in areas with higher proportions of households with no central heating. We will look at the months which are the coldest in Scotland, the winter months, which for 2021/2022 were December, January and February.
 
 ```{r message=FALSE}
 pacman::p_load(tidyverse, janitor, here, readxl, magrittr, ggplot2, plotly, ggiraph, sf)
@@ -194,13 +194,13 @@ interactive_plot <- girafe(ggobj = myplot) %>%
   girafe_options()
 ```
 
-```{r}
+```{r me}
 #plot table
 salbut_per100k
 
 ```
 
-```{r}
+```{r message=FALSE}
 #visualise the percentage of no heating in each healthboard
 
 scot_hb <- st_read(here("data", "SG_NHS_HealthBoards_2019", "SG_NHS_HealthBoards_2019.shp")) %>% 
@@ -218,9 +218,6 @@ ggplot(aes(fill = percent_no_heating)) +
 heating_plot
 
 heating_map <- girafe(ggobj = heating_plot)
-
-plot(heating_map_data$percent_no_heating)
-
 ```
 
 Reference List
