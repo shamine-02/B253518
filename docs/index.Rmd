@@ -14,9 +14,8 @@ This question aims to determine whether there is a correlation between the numbe
 
 Salbutamol inhalers are used to relieve the symptoms of respiratory conditons, such as asthma and chronic obstructive pulmonary disease. Patients may use their salbutamol inhaler when they experience symptoms, such as breathlessness, tightness in their chest, coughing and wheezing. These symptoms are usually exacerbated by the cold weather. Therefore, this questions aims to determine if there is a difference between prescriptions for salbutamol inhalers in areas with higher proportions of households with no central heating.We will look at the months which are the coldest in Scotland, the winter months, which for 2021/2022 were December, January and February.
 
-
 ```{r message=FALSE}
-pacman::p_load(tidyverse, janitor, here, readxl, magrittr)
+pacman::p_load(tidyverse, janitor, here, readxl, magrittr, ggplot2, plotly, ggiraph, sf)
 ```
 
 ```{r}
@@ -35,7 +34,8 @@ tidy_heating2022 <- heating_data2022 %>%
 #change data for no_central_heating and occupied_households into integers (from characters) and add a column that shows the proportion of households without central heating
 tidy_heating2022 %<>% mutate(no_central_heating = as.numeric(no_central_heating),
          occupied_households = as.numeric(occupied_households)) %>% 
-    mutate(percent_no_heating = (no_central_heating/occupied_households)*100)#add column percent_no_heating 
+    mutate(percent_no_heating = (no_central_heating/occupied_households)*100) %>% #add column percent_no_heating 
+  select(c(hb_area2019, percent_no_heating))
   
 ```
 
@@ -62,7 +62,6 @@ data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b
 #   select(link) %>% 
 #   pull
 ```
-
 
 ```{r}
 #function to filter for salbutamol inhalers and summarise inhaler prescriptions
@@ -92,7 +91,7 @@ salbut_feb2022 <- salbut_presc(data_feb2022) %>%
   rename("salbutamol_feb22" = prescribed_salbutamol)
 ```
 
-remove code for Scottish Ambulance Service (SB0806): https://www.opendata.nhs.scot/dataset/non-standard-geography-codes-and-labels/resource/0450a5a2-f600-4569-a9ae-5d6317141899 
+remove code for Scottish Ambulance Service (SB0806): <https://www.opendata.nhs.scot/dataset/non-standard-geography-codes-and-labels/resource/0450a5a2-f600-4569-a9ae-5d6317141899>
 
 ```{r}
 #join datasets for 2021/2022 together
@@ -117,8 +116,7 @@ hb_salbut_2122 <- joined_salbut_2122 %>%
   filter(!is.na(salbutamol_dec21)) #rows contain old area codes (now archived)
 ```
 
-Area codes from row 15 to 18 are the old area codes from the 2014 healthboard boundaries, but which were changed in 2019.
-***find link***
+Area codes from row 15 to 18 are the old area codes from the 2014 healthboard boundaries, but which were changed in 2019. ***find link***
 
 ```{r}
 #join population data
@@ -130,48 +128,99 @@ population_2122 <- population_data %>%
   filter(HB != "S92000003") #remove country code for Scotland
 
 #functions for salbutamol per 100k 
-#salbut_per100k <- function(df,)
+# salbut_per100k <- function(x){
+#   x*100000/population
+# }
 
 #join prescription data and population data and add columns for prescriptions per 100k
-salbut_population_2122 <- hb_salbut_2122 %>% 
-  full_join(population_2122, join_by("hbt" == "HB")) %>% 
+# salbut_population_2122 <- hb_salbut_2122 %>% 
+#   full_join(population_2122, join_by("hbt" == "HB")) %>% 
+#   rename("population" = AllAges) %>%   
+#   mutate(across(c(starts_with("salbutamol")), salbut_per100k), .names = "per100k_{.col}")
+
+salbut_population_2122 <- hb_salbut_2122 %>%
+  full_join(population_2122, join_by("hbt" == "HB")) %>%
   rename("population" = AllAges) 
+
+salbut_per100k <- salbut_population_2122%>%
+  mutate(across(starts_with("salbutamol")),
+         (pick(starts_with("salbutamol"))*100000)/population) #.names = "per100k_{.col}", add later 
   
-testing <- salbut_population_2122 %>%   
-  mutate(across(starts_with("salbutamol")), 
-         (pick(starts_with("salbutamol"))*100000)/population, .names = "per100k_{.col}")
-
-testing <- salbut_population_2122 %>%   
-  mutate(across(pick(starts_with("salbutamol")),*100000/population, .names = "per100k_{.col}")
-
-.names = "per100k_{.col}"), 
-
-  mutate(.names = "per100k_{.col}")
+averages_salbutamol <- salbut_population_2122 %>%
+  rowwise() %>% 
+  mutate(average_salbut = mean(c_across(starts_with("Salbutamol")))) %>% 
+  mutate(average_salbut_per100k = (average_salbut*100000)/population)
 ```
+
 S92000003 is the country code for Scotland, so this row tells us the population of Scotland in this year. So, we can remove it.
 
-
 ```{r}
+#join average_salbutamol with heating data
+
 #join asthma_data_12_21 and heating data (2022)
-joined_dec2021 <- asthma_meds_12_21 %>% 
-  full_join(heating_data2022, by = (c("hb_name" = "hb_area2019")))
+final_salbutamol2122 <- averages_salbutamol %>% 
+  full_join(tidy_heating2022, by = (c("hb_name" = "hb_area2019")))
 
 #plotting data for % of households with heating in a healthboard and prescriptions of salbutamol
 
-joined_dec2021 %>% 
-  ggplot(aes(x = percent_no_heating, y = prescribed_salbutamol, colour = hb_name))+
+interactive_plot <- final_salbutamol2122 %>% 
+  ggplot(aes(x = percent_no_heating, 
+             y = average_salbut_per100k, 
+             colour = hb_name)) +
   geom_point() +
-  labs( title = "Plot showing the number of prescription against % of houeholds without heating",
-        subtitle = "Decemebr 2021",
+  theme_bw() +
+  labs( title = "Salbutamol prescription against % of households without heating in each Scottish healthboard",
+        subtitle = "Winter 2021/2022",
         x = "no central heating (%)",
-        y = "number of salbutamol prescribed")
+        y = "Salbutamol prescriptions per 100k people")
+
+ggplotly(interactive_plot)
+
+myplot <- final_salbutamol2122 %>% 
+  ggplot(aes(x = percent_no_heating, 
+             y = average_salbut_per100k, 
+             colour = hb_name,
+             tooltip = hb_name, 
+             data_id = hb_name)) +
+  geom_point_interactive( size = 2, hover_nearest = TRUE) +
+  theme_bw() +
+  labs( title = "Salbutamol prescription against % of households without heating in each Scottish healthboard",
+        subtitle = "Winter 2021/2022",
+        x = "no central heating (%)",
+        y = "Salbutamol prescriptions per 100k people",
+        fill = "Healthboard")
+
+interactive_plot <- girafe(ggobj = myplot) %>% 
+  girafe_options()
+```
+
+```{r}
+#plot table
+salbut_per100k
 
 ```
 
-## Including Plots
+```{r}
+#visualise the percentage of no heating in each healthboard
 
-```{r echo=FALSE}
-heating_data2011 <- read_excel(here("data", "table_2025-11-12_20-16-59.xlsx"))
+scot_hb <- st_read(here("data", "SG_NHS_HealthBoards_2019", "SG_NHS_HealthBoards_2019.shp")) %>% 
+  mutate(HBName = paste("NHS", HBName))
+
+heating_map_data <- tidy_heating2022 %>% 
+  full_join(scot_hb, join_by("hb_area2019" == "HBName"))
+
+heating_plot <- heating_map_data %>% 
+ggplot(aes(fill = percent_no_heating)) +
+  geom_sf(aes(geometry = geometry)) +
+  scale_fill_viridis_c(name = "% of households with no heating") +
+  labs(title = "Distribution of households with no central heating",
+       subtitle = "by Healthboards 2022")
+heating_plot
+
+heating_map <- girafe(ggobj = heating_plot)
+
+plot(heating_map_data$percent_no_heating)
+
 ```
 
 Reference List
