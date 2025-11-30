@@ -36,10 +36,34 @@ tidy_heating2022 %<>% mutate(no_central_heating = as.numeric(no_central_heating)
          occupied_households = as.numeric(occupied_households)) %>% 
     mutate(percent_no_heating = (no_central_heating/occupied_households)*100) %>% #add column percent_no_heating 
   select(c(hb_area2019, percent_no_heating))
-  
 ```
 
 To find the dataset for census data regarding central heating, go to: <https://www.scotlandscensus.gov.uk/webapi/jsf/tableView/tableView.xhtml>
+
+```{r message=FALSE}
+#visualise the percentage of no heating in each healthboard
+
+scot_hb <- st_read(here("data", "SG_NHS_HealthBoards_2019", "SG_NHS_HealthBoards_2019.shp")) %>% 
+  mutate(HBName = paste("NHS", HBName))
+
+heating_map_data <- tidy_heating2022 %>% 
+  full_join(scot_hb, join_by("hb_area2019" == "HBName"))
+
+heating_plot <- heating_map_data %>% 
+ggplot(aes(fill = percent_no_heating)) +
+  geom_sf_interactive(aes(geometry = geometry, 
+                          tooltip = percent_no_heating
+                          )) +
+  scale_fill_viridis_c(name = "% of households with no heating") +
+  labs(title = "Distribution of households with no central heating",
+       subtitle = "by Healthboards 2022")
+
+heating_map <- girafe(ggobj = heating_plot, options = list(
+  opts_hover_inv(css = "opacity:0.3;")))
+heating_map
+```
+
+
 
 ```{r loading datasets}
 #function to clean datasets
@@ -163,35 +187,39 @@ final_salbutamol2122 <- averages_salbutamol %>%
 
 #plotting data for % of households with heating in a healthboard and prescriptions of salbutamol
 
-interactive_plot <- final_salbutamol2122 %>% 
-  ggplot(aes(x = percent_no_heating, 
-             y = average_salbut_per100k, 
-             colour = hb_name)) +
-  geom_point() +
-  theme_bw() +
-  labs( title = "Salbutamol prescription against % of households without heating in each Scottish healthboard",
-        subtitle = "Winter 2021/2022",
-        x = "no central heating (%)",
-        y = "Salbutamol prescriptions per 100k people")
+# interactive_plot <- final_salbutamol2122 %>%
+#   ggplot(aes(x = percent_no_heating,
+#              y = average_salbut_per100k,
+#              colour = hb_name)) +
+#   geom_point() +
+#   theme_bw() +
+#   labs( title = "Salbutamol prescription against % of households without heating in each Scottish healthboard",
+#         subtitle = "Winter 2021/2022",
+#         x = "no central heating (%)",
+#         y = "Salbutamol prescriptions per 100k people")
+# 
+# ggplotly(interactive_plot)
 
-ggplotly(interactive_plot)
+ myplot <- final_salbutamol2122 %>%
+   ggplot(aes(x = percent_no_heating,
+              y = average_salbut_per100k,
+              colour = hb_name,
+              tooltip = hb_name,
+              data_id = hb_name)) +
+   geom_point_interactive( size = 2, hover_nearest = TRUE) +
+   theme_minimal() +
+   labs( title = "Salbutamol prescription against % of households without heating in each Scottish healthboard",
+         subtitle = "Winter 2021/2022",
+         x = "no central heating (%)",
+         y = "Salbutamol prescriptions per 100k people")
 
-myplot <- final_salbutamol2122 %>% 
-  ggplot(aes(x = percent_no_heating, 
-             y = average_salbut_per100k, 
-             colour = hb_name,
-             tooltip = hb_name, 
-             data_id = hb_name)) +
-  geom_point_interactive( size = 2, hover_nearest = TRUE) +
-  theme_bw() +
-  labs( title = "Salbutamol prescription against % of households without heating in each Scottish healthboard",
-        subtitle = "Winter 2021/2022",
-        x = "no central heating (%)",
-        y = "Salbutamol prescriptions per 100k people",
-        fill = "Healthboard")
+interactive_plot <- girafe(ggobj = myplot, 
+                           fonts = list(sans = "Open Sans"), 
+                           options = list(
+                             opts_hover_inv(css = "opacity:0.5;")))
 
-interactive_plot <- girafe(ggobj = myplot) %>% 
-  girafe_options()
+interactive_plot
+
 ```
 
 ```{r me}
@@ -200,25 +228,6 @@ salbut_per100k
 
 ```
 
-```{r message=FALSE}
-#visualise the percentage of no heating in each healthboard
-
-scot_hb <- st_read(here("data", "SG_NHS_HealthBoards_2019", "SG_NHS_HealthBoards_2019.shp")) %>% 
-  mutate(HBName = paste("NHS", HBName))
-
-heating_map_data <- tidy_heating2022 %>% 
-  full_join(scot_hb, join_by("hb_area2019" == "HBName"))
-
-heating_plot <- heating_map_data %>% 
-ggplot(aes(fill = percent_no_heating)) +
-  geom_sf(aes(geometry = geometry)) +
-  scale_fill_viridis_c(name = "% of households with no heating") +
-  labs(title = "Distribution of households with no central heating",
-       subtitle = "by Healthboards 2022")
-heating_plot
-
-heating_map <- girafe(ggobj = heating_plot)
-```
 
 Reference List
 
