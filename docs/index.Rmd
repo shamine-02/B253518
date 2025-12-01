@@ -241,7 +241,10 @@ For future research, calculating statistics to test if there is a correlation be
 
 If you hover over each point, you will be able to see more detailed descriptive statistics.
 
-Reference List
+
+I did not use generative AI (ChatGPT etc.) to support me in this assessment.
+
+**Reference List**
 
 Asthma and Lung UK (2023). *Cold Weather and Your Lungs.* Available at: <https://www.asthmaandlung.org.uk/living-with/cold-weather>. [Accessed 1 Dec. 2025]
 
