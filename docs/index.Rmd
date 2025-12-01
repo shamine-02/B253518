@@ -1,5 +1,6 @@
 ---
-title: "Is there a correlation between presriptions of Salbutamol and proportions of households without central heating in healthboards in Scotland?"
+title: Is there a correlation between presriptions of Salbutamol and proportions of
+  households without central heating in healthboards in Scotland?
 output: html_document
 date: "2025-10-31"
 ---
@@ -15,8 +16,11 @@ This question aims to determine whether there is a correlation between the numbe
 Salbutamol inhalers are used to relieve the symptoms of respiratory conditons, such as asthma and chronic obstructive pulmonary disease. Patients may use their salbutamol inhaler when they experience symptoms, such as breathlessness, tightness in their chest, coughing and wheezing. These symptoms are usually exacerbated by the cold weather. Therefore, this questions aims to determine if there is a difference between prescriptions for salbutamol inhalers in areas with higher proportions of households with no central heating. We will look at the months which are the coldest in Scotland, the winter months, which for 2021/2022 were December, January and February.
 
 ```{r message=FALSE}
-pacman::p_load(tidyverse, janitor, here, readxl, magrittr, ggplot2, plotly, ggiraph, sf)
+pacman::p_load(tidyverse, janitor, here, readxl, magrittr, ggplot2, ggiraph, sf, patchwork,dplyr, gt)
 ```
+
+#Heating data 2022
+##Preparing heating data
 
 ```{r}
 #load data for central heating
@@ -50,10 +54,10 @@ heating_map_data <- tidy_heating2022 %>%
   full_join(scot_hb, join_by("hb_area2019" == "HBName"))
 
 heating_plot <- heating_map_data %>% 
-ggplot(aes(fill = percent_no_heating)) +
+  ggplot(aes(fill = percent_no_heating)) +
   geom_sf_interactive(aes(geometry = geometry, 
-                          tooltip = percent_no_heating
-                          )) +
+                          tooltip = hb_area2019,
+                          data_id = percent_no_heating)) +
   scale_fill_viridis_c(name = "% of households with no heating") +
   labs(title = "Distribution of households with no central heating",
        subtitle = "by Healthboards 2022")
@@ -63,8 +67,9 @@ heating_map <- girafe(ggobj = heating_plot, options = list(
 heating_map
 ```
 
+#Prescription data
 
-
+##Loading and Cleaning data
 ```{r loading datasets}
 #function to clean datasets
 clean_prescriptions <- function(df){
@@ -87,6 +92,7 @@ data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b
 #   pull
 ```
 
+#filtering for Salbutamol and equivalents
 ```{r}
 #function to filter for salbutamol inhalers and summarise inhaler prescriptions
 salbut_relievers <- c("SALBUTAMOL", "VENTOLIN", "AIROMIR", "ASMALAL", "EASYHALER", "PULVINAL", "SALAMOL", "EASI-BREATHE", "SALBULIN") #names of salbutamol and brand equivalents
@@ -104,7 +110,6 @@ salbut_presc <- function(df){
 }
 
 #filtering datasets for each winter month in 2021/2022 and 2015/2016
-
 salbut_dec2021 <- salbut_presc(data_dec2021) %>% 
   rename("salbutamol_dec21" = prescribed_salbutamol)
 
@@ -151,17 +156,6 @@ population_2122 <- population_data %>%
   select(c(HB, AllAges)) %>% 
   filter(HB != "S92000003") #remove country code for Scotland
 
-#functions for salbutamol per 100k 
-# salbut_per100k <- function(x){
-#   x*100000/population
-# }
-
-#join prescription data and population data and add columns for prescriptions per 100k
-# salbut_population_2122 <- hb_salbut_2122 %>% 
-#   full_join(population_2122, join_by("hbt" == "HB")) %>% 
-#   rename("population" = AllAges) %>%   
-#   mutate(across(c(starts_with("salbutamol")), salbut_per100k), .names = "per100k_{.col}")
-
 salbut_population_2122 <- hb_salbut_2122 %>%
   full_join(population_2122, join_by("hbt" == "HB")) %>%
   rename("population" = AllAges) 
@@ -198,7 +192,7 @@ final_salbutamol2122 <- averages_salbutamol %>%
 #         x = "no central heating (%)",
 #         y = "Salbutamol prescriptions per 100k people")
 # 
-# ggplotly(interactive_plot)
+# ggplotly(interactive_plot, options = list(opts_hover_inv(css = "opacity:0.5;")))
 
  myplot <- final_salbutamol2122 %>%
    ggplot(aes(x = percent_no_heating,
@@ -216,18 +210,32 @@ final_salbutamol2122 <- averages_salbutamol %>%
 interactive_plot <- girafe(ggobj = myplot, 
                            fonts = list(sans = "Open Sans"), 
                            options = list(
-                             opts_hover_inv(css = "opacity:0.5;")))
-
+                             opts_hover_inv(css = "opacity:0.35;")))
 interactive_plot
-
 ```
 
 ```{r me}
 #plot table
-salbut_per100k
+averages_salbutamol %>% 
+  select(c(hb_name, starts_with("salbut"), starts_with("average"))) %>% 
+  gt() %>% 
+  cols_label(hb_name = "Healthboard",
+             salbutamol_dec21 = "December 2021",
+             salbutamol_jan22 = "January 2022",
+             salbutamol_feb22 = "February 2022",
+             average_salbut = "",
+             average_salbut_per100k = "Per 100k of the population") %>% 
+  cols_align(align = "center", columns = !hb_name) %>% 
+  fmt_number(columns = starts_with("Average"), decimals = 1) %>% 
+  tab_header(title = "Prescriptions of Salbutamol and branded equivalents in Winter 2021/22",
+             subtitle = "Data from Scottish Healthboards") %>% 
+  tab_spanner(label = "Salbutamol prescriptions", 
+               columns = c(salbutamol_dec21: salbutamol_feb22)) %>% 
+  tab_spanner(label = "Averages across Dec 2021 to Feb 2022",
+              columns = c(starts_with("Average")))
+  
 
 ```
-
 
 Reference List
 
