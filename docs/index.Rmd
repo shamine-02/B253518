@@ -1,5 +1,5 @@
 ---
-title: Is there a relaionship between presriptions of Salbutamol and proportions of
+title: Is there a relaionship between presriptions of salbutamol and proportions of
   households without central heating in healthboards in Scotland?
 output: html_document
 date: "2025-10-31"
@@ -11,13 +11,12 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 
 # Introduction
 
-This question aims to determine whether there is a correlation between the number of prescriptions for salbutamol inhalers (including branded salbutamol inhalers) and the proportion of households without central heating in NHS Scotland healthboards.
+Salbutamol inhalers are used to relieve the symptoms of respiratory conditions, such as asthma and chronic obstructive pulmonary disease (NHS, 2025). Patients may use their salbutamol inhaler when they experience symptoms, such as breathlessness, tightness in their chest, coughing and wheezing (NHS, 2025). These symptoms are usually exacerbated by the cold weather (Asthma and Lung UK, 2023).
 
-Salbutamol inhalers are used to relieve the symptoms of respiratory conditons, such as asthma and chronic obstructive pulmonary disease (NHS, 2025). Patients may use their salbutamol inhaler when they experience symptoms, such as breathlessness, tightness in their chest, coughing and wheezing. These symptoms are usually exacerbated by the cold weather. Therefore, this questions aims to determine if there is a difference between prescriptions for salbutamol inhalers in areas with higher proportions of households with no central heating. 
-We will look at the months which are the coldest in Scotland, the winter months, which for 2021/2022 were December, January and February.
+Therefore, this question aims to determine whether there is a relationship between the number of prescriptions for salbutamol inhalers (including branded salbutamol inhalers) and the proportion of households without central heating in NHS Scotland healthboards. We will look at the months which are the coldest in Scotland, the winter months, which for 2021/2022 were December, January and February.
 
 ```{r message=FALSE}
-pacman::p_load(tidyverse, janitor, here, readxl, magrittr, ggplot2, ggiraph, sf, patchwork, dplyr, gt)
+pacman::p_load(tidyverse, janitor, here, readxl, plotly, sf, gt, ggiraph)
 ```
 
 #Prescription data
@@ -41,7 +40,7 @@ data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b
   clean_prescriptions()
 ```
 
-##filtering for Salbutamol and equivalents
+##filtering for salbutamol and equivalents
 
 ```{r filter salbutamol}
 #function to filter for salbutamol inhalers and summarise inhaler prescriptions
@@ -70,7 +69,7 @@ salbut_feb2022 <- salbut_presc(data_feb2022) %>%
   rename("salbutamol_feb22" = prescribed_salbutamol)
 ```
 
-In this code chunk, I created a function that uses regeular expressions to filter for salbutamol and its alternative brand names prescribed in the NHS (NHS, 2025). I then filtered it to remove any inhaler types that have the same brand name but a different chemical compound e.g. EASYHALER_BECLOMET 200MCG (200 D) (not salbutamol). Then I found the total of all Salbutamol inhalers prescribed per healthboard. 
+In this code chunk, I created a function that uses regeular expressions to filter for salbutamol and its alternative brand names prescribed in the NHS (NHS, 2025). I then filtered it to remove any inhaler types that have the same brand name but a different chemical compound e.g. EASYHALER_BECLOMET 200MCG (200 D) (not salbutamol). Then I found the total of all salbutamol inhalers prescribed per healthboard.
 
 I removed data related to the code for Scottish Ambulance Service (SB0806), as my question does not relate to this (Public Health Scotland, 2021).
 
@@ -88,7 +87,7 @@ joined_salbut_2122 <- join_prescription(salbut_dec2021, salbut_jan2022)
 joined_salbut_2122 <- join_prescription(joined_salbut_2122, salbut_feb2022)
 ```
 
-In the code chunk above, I join all the totals of salbutamol prescriptions for each month together. 
+In the code chunk above, I join all the totals of salbutamol prescriptions for each month together.
 
 ###Joining healthboard names to prescription data
 
@@ -101,7 +100,7 @@ joined_salbut_2122 %<>% full_join(HB_names, join_by("hbt" == "hb")) %>%
   filter(!is.na(salbutamol_dec21)) #rows contain old area codes (now archived)
 ```
 
-Next, I joined the prescription data to names of the healthboards. 
+Next, I joined the prescription data to names of the healthboards.
 
 Area codes from row 15 to 18 are archived healthboard codes, but which are now archived due to changes (Public Health Scotland, 2024). Therefore we can remove them.
 
@@ -123,7 +122,7 @@ salbut_population_2122 <- joined_salbut_2122 %>%
 
 S92000003 is the country code for Scotland, so this row tells us the population of Scotland in this year. So, we can remove it. Then I joined the poplation data with the prescription data.
 
-##Plotting a table to show Salbutamol prescriptions
+##Plotting a table to show salbutamol prescriptions
 
 ```{r me}
 #find prescription per 100k of population
@@ -144,11 +143,12 @@ salbut_population_2122 %>%
              average_salbut_per100k = "Averages across Dec 2021 to Feb 2022 per 100k of the population") %>% 
   cols_align(align = "center", columns = !hb_name) %>% 
   fmt_number(columns = starts_with("Average"), decimals = 1) %>% 
-  tab_header(title = "Prescriptions of Salbutamol and branded equivalents in Winter 2021/22",
+  tab_header(title = "Prescriptions of salbutamol and branded equivalents in Winter 2021/22",
              subtitle = "Data from Scottish Healthboards") %>% 
   tab_spanner(label = "Salbutamol prescriptions", 
                columns = c(salbutamol_dec21: salbutamol_feb22))
 ```
+
 In this code chunk, I calculated the mean salbutamol prescriptions over the 3 months. Additionally, I calculate the number of salbutamol prescriptions per 100k of the population of each healthboard, which allows for comparisons between healthboards to be made.
 
 The table shows the results.
@@ -192,60 +192,55 @@ heating_map_data <- heating_data2022 %>%
   full_join(scot_hb, join_by("hb_area2019" == "HBName"))
 
 heating_map <- heating_map_data %>% 
-  ggplot(aes(fill = percent_no_heating)) +
-  geom_sf_interactive(aes(geometry = geometry, 
-                          tooltip = hb_area2019,
-                          data_id = percent_no_heating)) +
+  ggplot() +
+  geom_sf(aes(geometry = geometry, fill = percent_no_heating)) +
   scale_fill_viridis_c(name = "% of households with no heating") +
   labs(title = "Distribution of households with no central heating",
        subtitle = "by Healthboards 2022")
-
-heating_map <- girafe(ggobj = heating_map, options = list(
-  opts_hover_inv(css = "opacity:0.3;")))
 heating_map
 ```
 
 Next, I loaded the shapefile data for the Scottish healthboards. I joined the heating data for each healthboard to the shapefile. I used this to create a visualisation of the distribution of households with no central heating. Interestingly, healthboards further north, which have generally colder conditions, have a greater proportion of households with no central heating than those in the south. This may be due to the presence of a higher rural population in the south of Scotland, which may not have access to the technology required for central heating (Scottish Government, 2021).
 
-If you hover over each boundary, you can see the name of the healthboard.
+To find the shapefiles go to: <https://www.data.gov.uk/dataset/27d0fe5f-79bb-4116-aec9-a8e565ff756a/nhs-health-boards-scotland>
 
-#Plotting the relationship between no heating and Salbutamol prescriptions
+#Plotting the relationship between no heating and salbutamol prescriptions
 
 ```{r heating vs prescriptions}
 #join average_salbutamol with heating data
 final_salbutamol2122 <- salbut_population_2122 %>% 
-  full_join(heating_data2022, by = (c("hb_name" = "hb_area2019")))
+  full_join(heating_data2022, by = (c("hb_name" = "hb_area2019"))) %>% 
+  rename("healthboard" = hb_name)
 
 #plot the relationship
- myplot <- final_salbutamol2122 %>%
-   ggplot(aes(x = percent_no_heating,
-              y = average_salbut_per100k,
-              colour = hb_name,
-              tooltip = hb_name,
-              data_id = hb_name)) +
-   geom_point_interactive( size = 2, hover_nearest = TRUE) +
-   theme_minimal() +
-   labs( title = "Salbutamol prescription against % of households without heating in each Scottish healthboard",
-         subtitle = "Winter 2021/2022",
-         x = "no central heating (%)",
-         y = "Salbutamol prescriptions per 100k people")
+interactive_plot <- final_salbutamol2122 %>%
+  ggplot(aes(x = percent_no_heating,
+             y = average_salbut_per100k,
+             colour = healthboard)) +
+  geom_point() +
+  theme_minimal() +
+  labs( title = "Average salbutamol prescription against % of households without heating",
+        subtitle = " in each Scottish healthboard winter 2021/2022",
+        x = "no central heating (%)",
+        y = "Salbutamol prescriptions per 100k people")
 
-interactive_plot <- girafe(ggobj = myplot, 
-                           fonts = list(sans = "Open Sans"), 
-                           options = list(
-                             opts_hover_inv(css = "opacity:0.35;")))
-interactive_plot
+ggplotly(interactive_plot)
 ```
+
+Finally, I plotted the relationship between percentage of households with no heating and prescriptions per 100k of the population. The results were interesting, since some of the healthboards with a higher proportion of households with no heating (e.g. NHS Orkney) had fewer prescriptions of salbutamol than other areas that had lower proportions of households with no heating.
+
+For future research, calculating statistics to test if there is a correlation between these two factors may prove beneficial in determining whether the relationship is likely to be significant. It would also be beneficial to look at other socioeconomic demographics e.g. SIMD, which may give insight into the unusual relationship seen in the above plot.
+
+If you hover over each point, you will be able to see more detailed descriptive statistics.
 
 Reference List
 
+Asthma and Lung UK (2023). *Cold Weather and Your Lungs.* Available at: <https://www.asthmaandlung.org.uk/living-with/cold-weather>. [Accessed 1 Dec. 2025]
 
-<https://www.asthmaandlung.org.uk/living-with/cold-weather>
+NHS (2025). *About salbutamol inhalers.* Available at: <https://www.nhs.uk/medicines/salbutamol-inhaler/about-salbutamol-inhalers/> [Accessed 1 Dec. 2025].
 
-NHS (2025). _About salbutamol inhalers._ [online] nhs.uk. Available at: https://www.nhs.uk/medicines/salbutamol-inhaler/about-salbutamol-inhalers/ [Accessed 1 Dec. 2025].
+Public Health Scotland (2021). *Special Health Boards and National Facilities.* Available at: <https://www.opendata.nhs.scot/dataset/non-standard-geography-codes-and-labels/resource/0450a5a2-f600-4569-a9ae-5d6317141899> [Accessed 1 Dec. 2025].
 
-Public Health Scotland (2021). Special Health Boards and National Facilities. [online] Scottish Health and Social Care Open Data. Available at: https://www.opendata.nhs.scot/dataset/non-standard-geography-codes-and-labels/resource/0450a5a2-f600-4569-a9ae-5d6317141899 [Accessed 1 Dec. 2025].
+Public Health Scotland (2024). *Geography, population and deprivation support - Geography - NHS board or health board.* Available at: <https://publichealthscotland.scot/resources-and-tools/health-intelligence-and-data-management/geography-population-and-deprivation-support/geography/nhs-board-or-health-board/> [Accessed 1 Dec. 2025].
 
-Public Health Scotland (2024). Geography, population and deprivation support - Geography - NHS board or health board. [online] Available at: https://publichealthscotland.scot/resources-and-tools/health-intelligence-and-data-management/geography-population-and-deprivation-support/geography/nhs-board-or-health-board/ [Accessed 1 Dec. 2025].
-
-Scottish Government (2021). Rural Scotland Key Facts 2021. [online] www.gov.scot. Available at: https://www.gov.scot/publications/rural-scotland-key-facts-2021/ [Accessed 1 Dec. 2025].
+Scottish Government (2021). *Rural Scotland Key Facts 2021.* Available at: <https://www.gov.scot/publications/rural-scotland-key-facts-2021/> [Accessed 1 Dec. 2025].
