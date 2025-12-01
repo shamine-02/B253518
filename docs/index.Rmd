@@ -121,11 +121,11 @@ salbut_population_2122 <- joined_salbut_2122 %>%
   rename("population" = AllAges) 
 ```
 
-S92000003 is the country code for Scotland, so this row tells us the population of Scotland in this year. So, we can remove it. Then I joined the poplation data with the prescription data.
+S92000003 is the country code for Scotland, so this row tells us the population of Scotland in this year. So, we can remove it. Then I joined the population data with the prescription data.
 
 ## Plotting a table to show salbutamol prescriptions
 
-```{r me}
+```{r average prescription table}
 #find prescription per 100k of population
 salbut_population_2122 %<>%
   rowwise() %>% 
@@ -158,7 +158,7 @@ The table shows the results.
 
 ## Loading and preparing heating data
 
-```{r preparing heating}
+```{r preparing heating, message=FALSE}
 #load data for central heating
 heating_data2022 <- read_excel(here("data", "table_2025-11-12_19-17-58.xlsx"))
 
@@ -220,14 +220,19 @@ interactive_plot <- final_salbutamol2122 %>%
              colour = healthboard)) +
   geom_point() +
   theme_minimal() +
-  labs( title = "Average salbutamol prescription against % of households without heating",
-        subtitle = " in each Scottish healthboard winter 2021/2022",
+  labs(title = "Average salbutamol prescriptions against % of households without heating",
+       subtitle = "in each Scottish healthboard winter months 2021/2022",
         x = "no central heating (%)",
-        y = "Salbutamol prescriptions per 100k people") %>% 
-  theme(plot.title = element_text(hjust = 0),
+        y = "Salbutamol prescriptions per 100k people") +
+  theme(plot.title = element_text(hjust = 0, size = 10),
         plot.subtitle = element_text(hjust = 0))
 
-ggplotly(interactive_plot)
+ggplotly(interactive_plot) %>% 
+  layout(title = list(text = paste0("Average salbutamol prescriptions against % of households without heating",
+                           "<br>",
+                           "<sup>",
+                           "in each Scottish healthboard winter months 2021/2022", "</sup>"
+                           )))
 ```
 
 Finally, I plotted the relationship between percentage of households with no heating and prescriptions per 100k of the population. The results were interesting, since some of the healthboards with a higher proportion of households with no heating (e.g. NHS Orkney) had fewer prescriptions of salbutamol than other areas that had lower proportions of households with no heating.This is unexpected since we know the cold exacerbates respiratory conditions (Asthma and Lung UK, 2023).
