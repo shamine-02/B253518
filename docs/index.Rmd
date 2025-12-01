@@ -1,7 +1,8 @@
 ---
-title: Is there a relaionship between presriptions of salbutamol and proportions of
+title: Is there a relationship between prescriptions of salbutamol and proportions of
   households without central heating in healthboards in Scotland?
 output: html_document
+toc: true
 date: "2025-10-31"
 ---
 
@@ -16,12 +17,12 @@ Salbutamol inhalers are used to relieve the symptoms of respiratory conditions, 
 Therefore, this question aims to determine whether there is a relationship between the number of prescriptions for salbutamol inhalers (including branded salbutamol inhalers) and the proportion of households without central heating in NHS Scotland healthboards. We will look at the months which are the coldest in Scotland, the winter months, which for 2021/2022 were December, January and February.
 
 ```{r message=FALSE}
-pacman::p_load(tidyverse, janitor, here, readxl, plotly, sf, gt, ggiraph)
+pacman::p_load(tidyverse, janitor, here, readxl, plotly, sf, gt)
 ```
 
-#Prescription data
+# Prescription data
 
-##Loading and preparing data
+## Loading and preparing data
 
 ```{r loading datasets}
 #function to clean datasets
@@ -40,7 +41,7 @@ data_feb2022 <- read_csv("https://www.opendata.nhs.scot/dataset/84393984-14e9-4b
   clean_prescriptions()
 ```
 
-##filtering for salbutamol and equivalents
+## Filtering for salbutamol and equivalents
 
 ```{r filter salbutamol}
 #function to filter for salbutamol inhalers and summarise inhaler prescriptions
@@ -58,7 +59,7 @@ salbut_presc <- function(df){
   subset(hbt != "SB0806") #removing row with code SB0806
 }
 
-#filtering datasets for each winter month in 2021/2022 and 2015/2016
+#filtering datasets for each winter month in 2021/2022
 salbut_dec2021 <- salbut_presc(data_dec2021) %>% 
   rename("salbutamol_dec21" = prescribed_salbutamol)
 
@@ -73,7 +74,7 @@ In this code chunk, I created a function that uses regeular expressions to filte
 
 I removed data related to the code for Scottish Ambulance Service (SB0806), as my question does not relate to this (Public Health Scotland, 2021).
 
-###Joining prescription datasets together
+### Joining prescription datasets together
 
 ```{r joining datasets}
 #join datasets for 2021/2022 together
@@ -89,7 +90,7 @@ joined_salbut_2122 <- join_prescription(joined_salbut_2122, salbut_feb2022)
 
 In the code chunk above, I join all the totals of salbutamol prescriptions for each month together.
 
-###Joining healthboard names to prescription data
+### Joining healthboard names to prescription data
 
 ```{r join with healthboard}
 HB_names <- read_csv("https://www.opendata.nhs.scot/dataset/9f942fdb-e59e-44f5-b534-d6e17229cc7b/resource/652ff726-e676-4a20-abda-435b98dd7bdc/download/hb14_hb19.csv") %>% 
@@ -122,7 +123,7 @@ salbut_population_2122 <- joined_salbut_2122 %>%
 
 S92000003 is the country code for Scotland, so this row tells us the population of Scotland in this year. So, we can remove it. Then I joined the poplation data with the prescription data.
 
-##Plotting a table to show salbutamol prescriptions
+## Plotting a table to show salbutamol prescriptions
 
 ```{r me}
 #find prescription per 100k of population
@@ -153,9 +154,9 @@ In this code chunk, I calculated the mean salbutamol prescriptions over the 3 mo
 
 The table shows the results.
 
-#Heating data 2022
+# Heating data 2022
 
-##Loading and preparing heating data
+## Loading and preparing heating data
 
 ```{r preparing heating}
 #load data for central heating
@@ -181,7 +182,7 @@ To find the dataset for census data regarding central heating, go to: <https://w
 
 I filtered to remove any unnecessary rows in the dataset and converted the data from characters to numeric data. I then calculated the percentage of households with no central heating in each healthboard.
 
-##Visualising the percentage of no heating per healthboard
+## Visualising the percentage of no heating per healthboard
 
 ```{r heating map}
 scot_hb <- st_read(here("data", "SG_NHS_HealthBoards_2019", "SG_NHS_HealthBoards_2019.shp")) %>% 
@@ -204,7 +205,7 @@ Next, I loaded the shapefile data for the Scottish healthboards. I joined the he
 
 To find the shapefiles go to: <https://www.data.gov.uk/dataset/27d0fe5f-79bb-4116-aec9-a8e565ff756a/nhs-health-boards-scotland>
 
-#Plotting the relationship between no heating and salbutamol prescriptions
+# Plotting the relationship between no heating and salbutamol prescriptions
 
 ```{r heating vs prescriptions}
 #join average_salbutamol with heating data
@@ -222,14 +223,16 @@ interactive_plot <- final_salbutamol2122 %>%
   labs( title = "Average salbutamol prescription against % of households without heating",
         subtitle = " in each Scottish healthboard winter 2021/2022",
         x = "no central heating (%)",
-        y = "Salbutamol prescriptions per 100k people")
+        y = "Salbutamol prescriptions per 100k people") %>% 
+  theme(plot.title = element_text(hjust = 0),
+        plot.subtitle = element_text(hjust = 0))
 
 ggplotly(interactive_plot)
 ```
 
-Finally, I plotted the relationship between percentage of households with no heating and prescriptions per 100k of the population. The results were interesting, since some of the healthboards with a higher proportion of households with no heating (e.g. NHS Orkney) had fewer prescriptions of salbutamol than other areas that had lower proportions of households with no heating.
+Finally, I plotted the relationship between percentage of households with no heating and prescriptions per 100k of the population. The results were interesting, since some of the healthboards with a higher proportion of households with no heating (e.g. NHS Orkney) had fewer prescriptions of salbutamol than other areas that had lower proportions of households with no heating.This is unexpected since we know the cold exacerbates respiratory conditions (Asthma and Lung UK, 2023).
 
-For future research, calculating statistics to test if there is a correlation between these two factors may prove beneficial in determining whether the relationship is likely to be significant. It would also be beneficial to look at other socioeconomic demographics e.g. SIMD, which may give insight into the unusual relationship seen in the above plot.
+For future research, calculating statistics to test if there is a correlation between these two factors may prove beneficial in determining whether the relationship is likely to be significant. It would also be beneficial to look at other socioeconomic demographics, e.g. SIMD, which may give insight into the unusual relationship seen in the above plot.
 
 If you hover over each point, you will be able to see more detailed descriptive statistics.
 
